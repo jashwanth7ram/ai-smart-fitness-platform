@@ -1,12 +1,12 @@
-/**
- * MongoDB Connection Configuration
- * Connection pooling and error handling
- */
 import mongoose from 'mongoose';
 import logger from './logger.js';
 
 export const connectDB = async () => {
-  const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/ai-fitness-tracker';
+  const uri = process.env.MONGODB_URI;
+
+  if (!uri) {
+    throw new Error("MONGODB_URI not defined in environment variables");
+  }
 
   try {
     const conn = await mongoose.connect(uri, {
