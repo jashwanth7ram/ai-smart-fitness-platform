@@ -1,12 +1,10 @@
-/**
- * Express Application Configuration
- * Security, middleware, and route mounting
- */
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import mongoSanitize from 'express-mongo-sanitize';
 import morgan from 'morgan';
+import path from "path";
+import { fileURLToPath } from "url";
 
 import { errorHandler, notFound } from './middleware/errorHandler.js';
 import { rateLimiter } from './middleware/rateLimiter.js';
@@ -18,22 +16,22 @@ const app = express();
 // Security middleware
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
-  contentSecurityPolicy: false, // Adjust for production
+  contentSecurityPolicy: false,
 }));
+
 app.use(cors({
   origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
   credentials: true,
 }));
+
 app.use(mongoSanitize());
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 
-// Request logging
 app.use(morgan('combined', {
   stream: { write: (msg) => logger.http(msg.trim()) },
 }));
 
-// Rate limiting
 app.use(rateLimiter);
 
 // Health check
@@ -45,21 +43,12 @@ app.get('/health', (req, res) => {
 const API_PREFIX = `/api/${process.env.API_VERSION || 'v1'}`;
 app.use(API_PREFIX, routes);
 
-// Error handling
-app.use(notFound);
-app.use(errorHandler);
-
-export default app;
-import path from "path";
-import { fileURLToPath } from "url";
-
+// ✅ PRODUCTION FRONTEND SERVING (MUST BE HERE)
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 if (process.env.NODE_ENV === "production") {
-  app.use(
-    express.static(path.join(__dirname, "../../frontend/dist"))
-  );
+  app.use(express.static(path.join(__dirname, "../../frontend/dist")));
 
   app.get("*", (req, res) => {
     res.sendFile(
@@ -67,3 +56,9 @@ if (process.env.NODE_ENV === "production") {
     );
   });
 }
+
+// ❌ These MUST BE LAST
+app.use(notFound);
+app.use(errorHandler);
+
+export default app;
