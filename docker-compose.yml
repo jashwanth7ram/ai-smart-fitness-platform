@@ -1,0 +1,51 @@
+# AI Fitness Tracker — Docker Compose
+# Production-ready stack: Frontend, Backend, MongoDB
+
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    environment:
+      - VITE_API_URL=/api/v1
+    networks:
+      - fitness-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "2333:2333"
+    depends_on:
+      - mongodb
+    env_file:
+      - ./backend/.env
+    environment:
+      - NODE_ENV=production
+      - PORT=2333
+      - CORS_ORIGIN=http://localhost:3000
+    networks:
+      - fitness-network
+
+  mongodb:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - fitness-network
+
+volumes:
+  mongodb_data:
+
+networks:
+  fitness-network:
+    driver: bridge

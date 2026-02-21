@@ -1,0 +1,97 @@
+# AI Fitness Tracker — Azure DevOps CI/CD Pipeline
+# Build, test, and deploy frontend + backend
+
+trigger:
+  branches:
+    include:
+      - main
+      - develop
+
+variables:
+  dockerRegistryServiceConnection: 'ACR-ServiceConnection'
+  imageRepository: 'ai-fitness-tracker'
+  containerRegistry: 'yourregistry.azurecr.io'
+  dockerfilePath: '$(Build.SourcesDirectory)'
+  tag: '$(Build.BuildId)'
+
+stages:
+  - stage: Build
+    displayName: 'Build and Test'
+    jobs:
+      - job: BackendBuild
+        displayName: 'Backend Build'
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '20.x'
+            displayName: 'Install Node.js'
+
+          - script: |
+              cd backend
+              npm ci
+              npm run lint || true
+            displayName: 'Install and lint backend'
+
+          - task: Docker@2
+            displayName: 'Build backend image'
+            inputs:
+              command: 'build'
+              dockerfile: 'backend/Dockerfile'
+              buildContext: 'backend'
+              repository: '$(imageRepository)-api'
+              tags: '$(tag)'
+
+      - job: FrontendBuild
+        displayName: 'Frontend Build'
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '20.x'
+            displayName: 'Install Node.js'
+
+          - script: |
+              cd frontend
+              npm ci
+              npm run build
+            displayName: 'Build frontend'
+            env:
+              VITE_API_URL: '$(API_BASE_URL)'
+
+          - task: Docker@2
+            displayName: 'Build frontend image'
+            inputs:
+              command: 'build'
+              dockerfile: 'frontend/Dockerfile'
+              buildContext: 'frontend'
+              repository: '$(imageRepository)-web'
+              tags: '$(tag)'
+
+  - stage: Deploy
+    displayName: 'Deploy to Azure'
+    dependsOn: Build
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - deployment: DeployContainerApp
+        displayName: 'Deploy to Azure Container Apps'
+        pool:
+          vmImage: 'ubuntu-latest'
+        environment: 'production'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: AzureCLI@2
+                  displayName: 'Deploy containers'
+                  inputs:
+                    azureSubscription: '$(AzureServiceConnection)'
+                    scriptType: 'bash'
+                    scriptLocation: 'inlineScript'
+                    inlineScript: |
+                      # Push images and deploy (customize for your Azure setup)
+                      echo "Deploy to Azure Container Apps or AKS"
+                      # az containerapp update --name ai-fitness-api --image $(containerRegistry)/$(imageRepository)-api:$(tag)
+                      # az containerapp update --name ai-fitness-web --image $(containerRegistry)/$(imageRepository)-web:$(tag)
